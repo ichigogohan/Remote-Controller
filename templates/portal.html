@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-white flex flex-col items-center justify-center min-h-screen p-6">
+    <div class="w-full max-w-sm space-y-6">
+        <header class="text-center">
+            <h1 class="text-2xl font-bold tracking-tight">Remote System</h1>
+            <p class="text-gray-400 text-sm mt-2">接続に成功しました</p>
+        </header>
+        
+        <div class="grid gap-4">
+            <a href="/remote?t={{ token }}" class="bg-[#252525] hover:bg-[#333] p-6 rounded-2xl flex items-center gap-4 transition-all active:scale-95 border border-white/5">
+                <div class="bg-blue-600 p-3 rounded-xl">⌨️</div>
+                <div class="text-left">
+                    <div class="font-bold">Trackpad & Key</div>
+                    <div class="text-xs text-gray-400">PCの操作を行います</div>
+                </div>
+            </a>
+
+            <a href="/viewer?t={{ token }}" class="bg-[#252525] hover:bg-[#333] p-6 rounded-2xl flex items-center gap-4 transition-all active:scale-95 border border-white/5">
+                <div class="bg-green-600 p-3 rounded-xl">📺</div>
+                <div class="text-left">
+                    <div class="font-bold">Screen Viewer</div>
+                    <div class="text-xs text-gray-400">画面をストリーミングします</div>
+                </div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

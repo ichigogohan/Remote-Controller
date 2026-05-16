@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Screen Viewer</title>
+    <style>
+        body { 
+            margin: 0; 
+            background: #111; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            overflow: hidden; 
+            font-family: 'Segoe UI', sans-serif;
+            color: white;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        img { 
+            max-width: 100%; 
+            max-height: 100%; 
+            object-fit: contain; 
+            z-index: 1;
+        }
+
+        /* HUD (Head-Up Display) */
+        .hud {
+            position: absolute;
+            top: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-family: monospace;
+            font-size: 14px;
+            color: rgb(255, 255, 255);
+            text-shadow: 0 0 2px #000;
+            z-index: 10;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+        }
+
+        /* コントロールパネル */
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(20, 20, 20, 0.85);
+            padding: 15px 25px;
+            border-radius: 12px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            z-index: 10;
+            transition: opacity 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .controls:hover { opacity: 1; }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        .control-group label {
+            font-size: 11px;
+            color: #aaa;
+            text-transform: uppercase;
+        }
+        .control-group span {
+            font-size: 12px;
+            font-weight: bold;
+            width: 30px;
+            text-align: center;
+        }
+        input[type=range] {
+            width: 100px;
+            accent-color: #007bff;
+            cursor: pointer;
+        }
+
+        @media (max-width: 600px) {
+            .controls {
+                width: 90%;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 10px;
+                padding: 10px;
+            }
+            input[type=range] { width: 70px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="video-container">
+        <div class="hud" id="stats-display">-- FPS / -- ms / -- Mbps</div>
+        
+        <img id="stream-img" src="" alt="PC Screen">
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Quality</label>
+                <input type="range" id="quality" min="10" max="100" value="50">
+                <span id="val-quality">50</span>
+            </div>
+            <div class="control-group">
+                <label>Scale</label>
+                <input type="range" id="scale" min="10" max="100" value="50">
+                <span id="val-scale">0.5</span>
+            </div>
+            <div class="control-group">
+                <label>FPS Limit</label>
+                <input type="range" id="fps" min="1" max="60" value="30">
+                <span id="val-fps">30</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // URLパラメータの取得
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('t') || '';
+
+        // ★ポート5002を明示的に指定してBase URLを作成
+        // (ビューアーが5001等の別ポートで動いていても、映像は5002に取りに行く)
+        const VIDEO_PORT = 5002;
+        const BASE_URL = `${window.location.protocol}//${window.location.hostname}:${VIDEO_PORT}`;
+
+        const img = document.getElementById('stream-img');
+        const statsDisplay = document.getElementById('stats-display');
+        
+        const inputQuality = document.getElementById('quality');
+        const inputScale = document.getElementById('scale');
+        const inputFps = document.getElementById('fps');
+        
+        const valQuality = document.getElementById('val-quality');
+        const valScale = document.getElementById('val-scale');
+        const valFps = document.getElementById('val-fps');
+
+        let settings = { q: 50, s: 0.5, fps: 30 };
+        let updateTimer;
+
+        // ストリームURL更新
+        function updateStream() {
+            // 現在時刻(_)を付けてキャッシュ回避
+            const streamUrl = `${BASE_URL}/video_feed?t=${token}&q=${settings.q}&s=${settings.s}&fps=${settings.fps}&_=${Date.now()}`;
+            img.src = streamUrl;
+        }
+
+        // 入力変更時の処理
+        function onSettingChange() {
+            settings.q = inputQuality.value;
+            settings.s = inputScale.value / 100;
+            settings.fps = inputFps.value;
+
+            valQuality.textContent = settings.q;
+            valScale.textContent = settings.s.toFixed(1);
+            valFps.textContent = settings.fps;
+
+            // 連続変更時は少し待ってから更新
+            clearTimeout(updateTimer);
+            updateTimer = setTimeout(() => {
+                updateStream();
+            }, 500);
+        }
+
+        inputQuality.addEventListener('input', onSettingChange);
+        inputScale.addEventListener('input', onSettingChange);
+        inputFps.addEventListener('input', onSettingChange);
+
+        // テレメトリ（統計情報）の定期取得
+        async function updateStats() {
+            const start = performance.now();
+            try {
+                // 絶対パスでfetch
+                const response = await fetch(`${BASE_URL}/telemetry`);
+                const end = performance.now();
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    const ping = Math.round(end - start);
+                    const mbps = (data.bps / 1000000).toFixed(1);
+                    
+                    statsDisplay.textContent = `${data.fps} FPS / ${ping} ms / ${mbps} Mbps`;
+                    
+                    // Pingに応じた色変更
+                    if (ping > 200) statsDisplay.style.color = '#ffcc00';
+                    else if (ping > 500) statsDisplay.style.color = '#ff4444';
+                    else statsDisplay.style.color = '#0f0';
+                }
+            } catch (e) {
+                // エラー時は表示をリセットせずコンソールのみに出力（チラつき防止）
+                console.warn("Telemetry fetch failed:", e);
+            }
+        }
+
+        // 初回実行と定期実行
+        updateStream();
+        setInterval(updateStats, 1000);
+    </script>
+</body>
+</html>
