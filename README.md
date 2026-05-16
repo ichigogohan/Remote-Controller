@@ -56,7 +56,7 @@
 
 ## 環境構築と起動方法
 ### パターンA：実行ファイル (.exe) から起動する場合（推奨）
-dist/ ディレクトリ内にある RemoteController.exe をダブルクリックして実行します。
+[リリースノート](https://github.com/ichigogohan/Remote-Controller/releases/)から、最新の RemoteController.exe をインストールし、ダブルクリックして実行します。
 
 ### パターンB：Pythonソースコードから起動する場合
 ### 1. 前提条件
